@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HR Contract Tracker — Live</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .topbar {
+      background: #0f172a;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-icon {
+      width: 36px; height: 36px;
+      background: #2563eb;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .topbar-icon svg { width: 18px; height: 18px; }
+    .topbar-title { color: #fff; font-weight: 700; font-size: 16px; }
+    .topbar-sub   { color: #64748b; font-size: 12px; margin-top: 1px; }
+
+    /* Source badge */
+    .source-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700;
+      margin-left: auto;
+    }
+    .source-badge.live  { background: #dcfce7; color: #166534; }
+    .source-badge.cache { background: #fef3c7; color: #92400e; }
+    .source-badge.demo  { background: #e0e7ff; color: #3730a3; }
+    .source-badge .dot  { width: 6px; height: 6px; border-radius: 50%; }
+    .source-badge.live  .dot  { background: #16a34a; animation: pulse 2s infinite; }
+    .source-badge.cache .dot  { background: #d97706; }
+    .source-badge.demo  .dot  { background: #6366f1; }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    /* ── Summary strip ───────────────────────────────────── */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .summary-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    .summary-card .label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+    .summary-card .value { font-size: 28px; font-weight: 800; margin-top: 4px; }
+    .summary-card.red    .value { color: #dc2626; }
+    .summary-card.orange .value { color: #ea580c; }
+    .summary-card.amber  .value { color: #d97706; }
+    .summary-card.green  .value { color: #16a34a; }
+    .summary-card.blue   .value { color: #2563eb; }
+
+    /* ── Search / filter bar ────────────────────────────── */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 200px; }
+    .search-wrap svg {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      width: 15px; height: 15px; color: #94a3b8;
+    }
+    .search-wrap input, select {
+      width: 100%;
+      padding: 9px 12px 9px 34px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 13px;
+      background: #fff;
+      color: #0f172a;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .search-wrap input:focus { border-color: #2563eb; }
+    select { padding-left: 12px; width: auto; cursor: pointer; }
+
+    /* ── Table card ─────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title { font-size: 15px; font-weight: 700; color: #0f172a; }
+    .card-count { font-size: 12px; color: #94a3b8; }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f8fafc; }
+    th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    th:hover { color: #0f172a; }
+    th .sort-icon { opacity: .35; margin-left: 3px; }
+    th.sorted .sort-icon { opacity: 1; color: #2563eb; }
+
+    tbody tr {
+      border-top: 1px solid #f1f5f9;
+      transition: background .12s;
+    }
+    tbody tr:hover { background: #f8fafc; }
+    td { padding: 14px 16px; font-size: 13px; vertical-align: middle; }
+
+    /* Employee cell */
+    .emp-name { font-weight: 600; color: #0f172a; }
+    .emp-meta { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+
+    /* Days remaining cell */
+    .days-value {
+      display: flex; align-items: center; gap: 6px;
+      font-weight: 700; font-size: 14px;
+    }
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Progress bar */
+    .progress-wrap { width: 120px; }
+    .progress-bg {
+      background: #f1f5f9;
+      border-radius: 99px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-fill { height: 100%; border-radius: 99px; transition: width .3s; }
+
+    /* Status colours */
+    .c-expired  { color: #dc2626; }
+    .c-critical { color: #dc2626; }
+    .c-urgent   { color: #ea580c; }
+    .c-expiring { color: #d97706; }
+    .c-active   { color: #16a34a; }
+    .c-renewed  { color: #2563eb; }
+
+    .bg-expired  { background: #fee2e2; color: #991b1b; }
+    .bg-critical { background: #fee2e2; color: #991b1b; }
+    .bg-urgent   { background: #ffedd5; color: #9a3412; }
+    .bg-expiring { background: #fef3c7; color: #92400e; }
+    .bg-active   { background: #dcfce7; color: #166534; }
+    .bg-renewed  { background: #dbeafe; color: #1e40af; }
+
+    .dot-expired, .dot-critical { background: #dc2626; }
+    .dot-urgent   { background: #ea580c; }
+    .dot-expiring { background: #d97706; }
+    .dot-active   { background: #16a34a; }
+    .dot-renewed  { background: #2563eb; }
+
+    .fill-expired, .fill-critical { background: #dc2626; }
+    .fill-urgent   { background: #ea580c; }
+    .fill-expiring { background: #d97706; }
+    .fill-active   { background: #16a34a; }
+    .fill-renewed  { background: #2563eb; }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .page { padding: 20px 12px; }
+      .topbar { padding: 14px 16px; }
+      th:nth-child(4), td:nth-child(4) { display: none; }  /* hide progress on mobile */
+    }
+
+    /* Pulse animation for critical */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .dot.pulse { animation: pulse 1.4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ───────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="topbar-icon">
+    <svg fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+    </svg>
+  </div>
+  <div style="flex:1">
+    <div class="topbar-title">HR Contract Tracker</div>
+    <div class="topbar-sub" id="syncLabel">Loading data…</div>
+  </div>
+  <span class="source-badge demo" id="sourceBadge">
+    <span class="dot"></span>
+    <span id="sourceText">Loading…</span>
+  </span>
+</div>
+
+<!-- ── Page ──────────────────────────────────────────────── -->
+<div class="page">
+
+  <!-- Summary strip -->
+  <div class="summary" id="summary"></div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="search" placeholder="Search by name or position…" oninput="render()" />
+    </div>
+    <select id="filterStatus" onchange="render()">
+      <option value="all">All Statuses</option>
+      <option value="expired">Expired</option>
+      <option value="critical">Critical (≤ 7 days)</option>
+      <option value="urgent">Urgent (8–14 days)</option>
+      <option value="expiring">Expiring (≤ 30 days)</option>
+      <option value="active">Active</option>
+      <option value="renewed">Recently Renewed</option>
+    </select>
+    <select id="filterBranch" onchange="render()">
+      <option value="all">All Branches</option>
+    </select>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Employee Contracts</span>
+      <span class="card-count" id="count"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sort('name')">
+              Employee <span class="sort-icon" id="sort-name">↕</span>
+            </th>
+            <th onclick="sort('days')">
+              Days Remaining <span class="sort-icon" id="sort-days">↕</span>
+            </th>
+            <th>Status</th>
+            <th onclick="sort('end')">
+              Contract End <span class="sort-icon" id="sort-end">↕</span>
+            </th>
+            <th>Progress</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">No employees match the current filter.</div>
+    </div>
+  </div>
+
+  <p style="text-align:center;margin-top:20px;font-size:11px;color:#94a3b8">
+    Draft • Last calculated: <span id="calcDate"></span>
+  </p>
+</div>
+
+<script>
+// ── Date helpers ──────────────────────────────────────────────
+const TODAY = new Date();
+TODAY.setHours(0,0,0,0);
+
+function days(endDateStr) {
+  const end = new Date(endDateStr);
+  end.setHours(0,0,0,0);
+  return Math.round((end - TODAY) / 86400000);
+}
+
+function statusOf(endDateStr, startDateStr) {
+  const d = days(endDateStr);
+  const startDays = Math.round((TODAY - new Date(startDateStr)) / 86400000);
+  if (d < 0)   return "expired";
+  if (d <= 7)  return "critical";
+  if (d <= 14) return "urgent";
+  if (d <= 30) return "expiring";
+  if (startDays <= 30) return "renewed";
+  return "active";
+}
+
+// ── Mock fallback (used when employees.json not yet generated) ─
+const MOCK_RAW = [
+  { name:"Ahmad Rizky Fadillah",   position:"Senior Software Engineer",      branch:"Jakarta HQ", department:"Technology",         start:"2022-06-01", end:"2024-05-31" },
+  { name:"Siti Nurhaliza Putri",   position:"HR Business Partner",           branch:"Jakarta HQ", department:"Human Resources",    start:"2023-06-01", end:"2026-05-26" },
+  { name:"Budi Santoso Wibowo",    position:"Financial Analyst",             branch:"Surabaya",   department:"Finance",            start:"2024-06-01", end:"2026-05-29" },
+  { name:"Dewi Rahayu Kusuma",     position:"Marketing Manager",             branch:"Bandung",    department:"Marketing",          start:"2023-01-01", end:"2026-06-04" },
+  { name:"Reza Firmansyah",        position:"Operations Supervisor",         branch:"Surabaya",   department:"Operations",         start:"2023-06-15", end:"2026-06-08" },
+  { name:"Nurul Hidayah Sari",     position:"Accounting Staff",              branch:"Jakarta HQ", department:"Finance",            start:"2024-06-15", end:"2026-06-15" },
+  { name:"Fajar Prasetyo",         position:"Product Designer",              branch:"Jakarta HQ", department:"Technology",         start:"2024-07-01", end:"2026-06-20" },
+  { name:"Indah Permatasari",      position:"Customer Service Lead",         branch:"Bandung",    department:"Customer Experience",start:"2023-08-01", end:"2026-07-31" },
+  { name:"Hendra Gunawan",         position:"Supply Chain Analyst",          branch:"Medan",      department:"Operations",         start:"2024-09-01", end:"2026-08-31" },
+  { name:"Rina Wulandari",         position:"Sales Executive",               branch:"Medan",      department:"Sales",              start:"2024-01-01", end:"2026-12-31" },
+  { name:"Taufik Hidayat",         position:"IT Infrastructure Engineer",    branch:"Surabaya",   department:"Technology",         start:"2026-05-01", end:"2028-04-30" },
+  { name:"Maya Anggraini",         position:"Legal Counsel",                 branch:"Jakarta HQ", department:"Legal",              start:"2026-04-15", end:"2028-04-14" },
+  { name:"Agus Setiawan",          position:"Warehouse Manager",             branch:"Bandung",    department:"Operations",         start:"2024-02-01", end:"2025-12-31" },
+  { name:"Lestari Wibawati",       position:"Digital Marketing Specialist",  branch:"Jakarta HQ", department:"Marketing",          start:"2025-03-01", end:"2027-02-28" },
+  { name:"Bayu Pratama",           position:"Business Development Manager",  branch:"Medan",      department:"Sales",              start:"2026-05-10", end:"2028-05-09" },
+];
+
+function buildData(rawList) {
+  return rawList.map(e => ({
+    ...e,
+    start: e.start || e.contract_start_date || "",
+    end:   e.end   || e.contract_end_date   || "",
+    days:  days(e.end || e.contract_end_date || ""),
+    status: statusOf(e.end || e.contract_end_date || "", e.start || e.contract_start_date || ""),
+    durationDays: Math.round((new Date(e.end || e.contract_end_date) - new Date(e.start || e.contract_start_date)) / 86400000),
+  }));
+}
+
+// ── Data — populated by loadData() below ─────────────────────
+let DATA = [];
+let DATA_SOURCE = "demo"; // "live" | "cache" | "demo"
+
+// ── Sorting state ─────────────────────────────────────────────
+let sortKey = "days", sortDir = 1;
+
+function sort(key) {
+  if (sortKey === key) sortDir *= -1;
+  else { sortKey = key; sortDir = 1; }
+  render();
+}
+
+// ── Populate branch filter from current DATA ──────────────────
+function populateBranchFilter() {
+  const sel = document.getElementById("filterBranch");
+  // Keep existing options (All Branches)
+  while (sel.options.length > 1) sel.remove(1);
+  const branches = [...new Set(DATA.map(e => e.branch))].filter(Boolean).sort();
+  branches.forEach(b => {
+    const o = document.createElement("option");
+    o.value = b; o.textContent = b;
+    sel.appendChild(o);
+  });
+}
+
+// ── Formatting helpers ────────────────────────────────────────
+function fmtDate(str) {
+  return new Date(str).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
+}
+
+function fmtDays(d) {
+  if (d < 0)  return `${Math.abs(d)} days overdue`;
+  if (d === 0) return "Expires today";
+  if (d === 1) return "1 day left";
+  return `${d} days left`;
+}
+
+const LABELS = {
+  expired:"Expired", critical:"Critical", urgent:"Urgent",
+  expiring:"Expiring Soon", active:"Active", renewed:"Renewed"
+};
+
+// Progress as % of total contract duration remaining
+function progressPct(e) {
+  if (e.durationDays <= 0) return 0;
+  const elapsed = e.durationDays - e.days;
+  return Math.max(0, Math.min(100, Math.round((elapsed / e.durationDays) * 100)));
+}
+
+// ── Summary counts ────────────────────────────────────────────
+function buildSummary(filtered) {
+  const all = DATA; // always count all, not filtered
+  const counts = {
+    expired:  all.filter(e=>e.status==="expired").length,
+    critical: all.filter(e=>e.status==="critical").length,
+    urgent:   all.filter(e=>e.status==="urgent").length,
+    expiring: all.filter(e=>e.status==="expiring").length,
+    active:   all.filter(e=>e.status==="active").length,
+    renewed:  all.filter(e=>e.status==="renewed").length,
+  };
+  const items = [
+    { label:"Expired",       value: counts.expired,  cls:"red"    },
+    { label:"Critical",      value: counts.critical,  cls:"orange" },
+    { label:"Expiring Soon", value: counts.expiring,  cls:"amber"  },
+    { label:"Active",        value: counts.active,    cls:"green"  },
+    { label:"Renewed",       value: counts.renewed,   cls:"blue"   },
+  ];
+  document.getElementById("summary").innerHTML = items.map(i => `
+    <div class="summary-card ${i.cls}">
+      <div class="label">${i.label}</div>
+      <div class="value">${i.value}</div>
+    </div>
+  `).join("");
+}
+
+// ── Main render ───────────────────────────────────────────────
+function render() {
+  const q      = document.getElementById("search").value.toLowerCase();
+  const status = document.getElementById("filterStatus").value;
+  const branch = document.getElementById("filterBranch").value;
+
+  let rows = DATA.filter(e => {
+    if (q && !e.name.toLowerCase().includes(q) && !e.position.toLowerCase().includes(q)) return false;
+    if (status !== "all" && e.status !== status) return false;
+    if (branch !== "all" && e.branch !== branch) return false;
+    return true;
+  });
+
+  // Sort
+  rows.sort((a, b) => {
+    let va, vb;
+    if (sortKey === "name") { va = a.name; vb = b.name; return sortDir * va.localeCompare(vb); }
+    if (sortKey === "days") { va = a.days; vb = b.days; }
+    if (sortKey === "end")  { va = a.end;  vb = b.end;  }
+    return sortDir * (va > vb ? 1 : va < vb ? -1 : 0);
+  });
+
+  // Update sort icons
+  ["name","days","end"].forEach(k => {
+    const el = document.getElementById(`sort-${k}`);
+    if (!el) return;
+    el.parentElement.classList.toggle("sorted", k === sortKey);
+    el.textContent = k !== sortKey ? "↕" : sortDir === 1 ? "↑" : "↓";
+  });
+
+  buildSummary(rows);
+  document.getElementById("count").textContent = `${rows.length} employee${rows.length !== 1 ? "s" : ""}`;
+  document.getElementById("empty").style.display = rows.length ? "none" : "block";
+
+  const pct = e => progressPct(e);
+
+  document.getElementById("tbody").innerHTML = rows.map(e => {
+    const sc = e.status === "renewed" ? "renewed" : e.status;
+    const dClass = e.days <= 0 ? "c-expired" : e.days <= 7 ? "c-critical" : e.days <= 14 ? "c-urgent" : e.days <= 30 ? "c-expiring" : e.status === "renewed" ? "c-renewed" : "c-active";
+    const p = pct(e);
+
+    return `
+    <tr>
+      <td>
+        <div class="emp-name">${e.name}</div>
+        <div class="emp-meta">${e.position} &middot; ${e.branch}</div>
+      </td>
+      <td>
+        <div class="days-value ${dClass}">
+          <span class="dot dot-${sc}${sc === "critical" ? " pulse" : ""}"></span>
+          ${fmtDays(e.days)}
+        </div>
+      </td>
+      <td>
+        <span class="badge bg-${sc}">${LABELS[e.status]}</span>
+      </td>
+      <td style="color:#64748b;white-space:nowrap">${fmtDate(e.end)}</td>
+      <td>
+        <div class="progress-wrap">
+          <div style="font-size:10px;color:#94a3b8;margin-bottom:3px;text-align:right">${p}% elapsed</div>
+          <div class="progress-bg">
+            <div class="progress-fill fill-${sc}" style="width:${p}%"></div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("calcDate").textContent = TODAY.toLocaleDateString("en-GB", {
+  weekday:"long", day:"numeric", month:"long", year:"numeric"
+});
+
+// ── Source badge helper ───────────────────────────────────────
+function setSourceBadge(source, generatedAt) {
+  const badge = document.getElementById("sourceBadge");
+  const text  = document.getElementById("sourceText");
+  const label = document.getElementById("syncLabel");
+
+  badge.className = "source-badge " + source;
+
+  if (source === "live") {
+    text.textContent  = "Live · Mekari Talenta";
+    label.textContent = generatedAt
+      ? "Synced from Talenta HRIS — " + new Date(generatedAt).toLocaleString("en-GB")
+      : "Live data from Mekari Talenta";
+  } else if (source === "cache") {
+    text.textContent  = "Cached data";
+    label.textContent = generatedAt
+      ? "Last synced: " + new Date(generatedAt).toLocaleString("en-GB")
+      : "Showing cached Talenta data";
+  } else {
+    text.textContent  = "Demo mode";
+    label.textContent = "Using sample data — add Talenta API credentials to hris/.env to go live";
+  }
+}
+
+// ── Load data: try employees.json, fall back to mock ─────────
+async function loadData() {
+  try {
+    const res = await fetch("/employees.json?_=" + Date.now());
+    if (!res.ok) throw new Error("not found");
+    const json = await res.json();
+
+    const rawList = json.employees || [];
+    if (!rawList.length) throw new Error("empty");
+
+    DATA = buildData(rawList);
+    const src = json.source === "talenta" ? "live" : "cache";
+    DATA_SOURCE = src;
+    setSourceBadge(src, json.generated_at);
+    console.log(`[Dashboard] Loaded ${DATA.length} employees from ${json.source}`);
+  } catch {
+    // Fall back to mock data
+    DATA = buildData(MOCK_RAW);
+    DATA_SOURCE = "demo";
+    setSourceBadge("demo", null);
+    console.log("[Dashboard] Using mock data (employees.json not found)");
+  }
+
+  populateBranchFilter();
+  render();
+}
+
+loadData();
+</script>
+</body>
+</html>

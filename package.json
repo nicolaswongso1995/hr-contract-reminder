@@ -1,0 +1,47 @@
+{
+  "name": "hr-contract-reminder",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "cron:run": "tsx src/jobs/contractChecker.ts",
+    "db:migrate": "node -e \"const {execSync}=require('child_process');execSync('psql '+process.env.DATABASE_URL+' -f scripts/migrate.sql',{stdio:'inherit'})\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "@supabase/ssr": "^0.3.0",
+    "next": "15.0.3",
+    "next-auth": "^4.24.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "nodemailer": "^6.9.9",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.8",
+    "date-fns": "^3.6.0",
+    "recharts": "^2.12.4",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.3.0",
+    "lucide-react": "^0.378.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "@types/nodemailer": "^6.4.15",
+    "@types/node-cron": "^3.0.11",
+    "@types/papaparse": "^5.3.14",
+    "typescript": "^5.4.5",
+    "tailwindcss": "^3.4.3",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "15.0.3",
+    "tsx": "^4.9.3"
+  }
+}
